@@ -1,4 +1,4 @@
-variable "enable_amazon" {
+variable "enable_aws" {
   description = "Enable / Disable Amazon Web Services k8s (e.g. `true`)"
   type        = bool
   default     = true

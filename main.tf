@@ -413,7 +413,7 @@ KUBECONFIG
 resource "local_file" "kubeconfigaws" {
   count    = var.enable_aws ? 1 : 0
   content  = local.kubeconfig
-  filename = "${path.module}/kubeconfig_aws"
+  filename = var.kubeconfig
 
   depends_on = [aws_eks_cluster.cluster]
 }

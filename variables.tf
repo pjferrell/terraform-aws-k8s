@@ -3,12 +3,6 @@ variable "kubeconfig" {
   type        = string
 }
 
-variable "enable_aws" {
-  description = "Enable / Disable Amazon Web Services k8s (e.g. `true`)"
-  type        = bool
-  default     = true
-}
-
 variable "random_cluster_suffix" {
   description = "Random 6 byte hex suffix for cluster name"
   type        = string

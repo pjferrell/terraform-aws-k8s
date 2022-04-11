@@ -35,7 +35,7 @@ resource "aws_vpc" "main" {
   tags = tomap({
     "Project" = "eks"
     "ManagedBy" = "terraform"
-    "kubernetes.io/cluster/${var.aws_cluster_name}-${random_id.cluster_name.hex}" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
   })
 }
 
@@ -49,7 +49,7 @@ resource "aws_subnet" "public" {
   tags = tomap({
     "Project" = "k8s"
     "ManagedBy" = "terraform"
-    "kubernetes.io/cluster/${var.aws_cluster_name}-${random_id.cluster_name.hex}" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
   })
 }
 
@@ -86,7 +86,7 @@ resource "aws_route_table_association" "rtassoc" {
 
 # Master IAM
 resource "aws_iam_role" "cluster" {
-  name  = var.aws_cluster_name
+  name  = var.cluster_name
 
   assume_role_policy = <<POLICY
 {
@@ -122,7 +122,7 @@ resource "aws_iam_role_policy_attachment" "cluster-AmazonEKSServicePolicy" {
 
 # Master Security Group
 resource "aws_security_group" "cluster" {
-  name        = var.aws_cluster_name
+  name        = var.cluster_name
   description = "Cluster communication with worker nodes"
   vpc_id      = aws_vpc.main.id
 
@@ -155,7 +155,7 @@ resource "aws_security_group_rule" "cluster-ingress-workstation-https" {
 
 # EKS Master
 resource "aws_eks_cluster" "cluster" {
-  name     = "${var.aws_cluster_name}-${random_id.cluster_name.hex}"
+  name     = "${var.cluster_name}-${random_id.cluster_name.hex}"
   role_arn = aws_iam_role.cluster.arn
   #version = var.aws_eks_version
 
@@ -173,7 +173,7 @@ resource "aws_eks_cluster" "cluster" {
 
 # EKS Worker IAM
 resource "aws_iam_role" "node" {
-  name = "${var.aws_cluster_name}-node"
+  name = "${var.cluster_name}-node"
 
   assume_role_policy = <<POLICY
 {
@@ -211,14 +211,14 @@ resource "aws_iam_role_policy_attachment" "node-AmazonEC2ContainerRegistryReadOn
 }
 
 resource "aws_iam_instance_profile" "node" {
-  name  = var.aws_cluster_name
+  name  = var.cluster_name
   role  = aws_iam_role.node.name
 }
 
 
 # EKS Worker Security Groups
 resource "aws_security_group" "node" {
-  name        = "${var.aws_cluster_name}-node"
+  name        = "${var.cluster_name}-node"
   description = "Security group for all nodes in the cluster"
   vpc_id      = aws_vpc.main.id
 
@@ -232,7 +232,7 @@ resource "aws_security_group" "node" {
   tags = tomap({
     "Project" = "k8s"
     "ManagedBy" = "terraform"
-    "kubernetes.io/cluster/${var.aws_cluster_name}-${random_id.cluster_name.hex}" = "owned"
+    "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "owned"
   })
 }
 
@@ -280,7 +280,7 @@ locals {
   demo-node-userdata = <<USERDATA
 #!/bin/bash
 set -o xtrace
-/etc/eks/bootstrap.sh --apiserver-endpoint '${aws_eks_cluster.cluster.endpoint}' --b64-cluster-ca '${aws_eks_cluster.cluster.certificate_authority.0.data}' '${var.aws_cluster_name}-${random_id.cluster_name.hex}'
+/etc/eks/bootstrap.sh --apiserver-endpoint '${aws_eks_cluster.cluster.endpoint}' --b64-cluster-ca '${aws_eks_cluster.cluster.certificate_authority.0.data}' '${var.cluster_name}-${random_id.cluster_name.hex}'
 USERDATA
 }
 
@@ -289,7 +289,7 @@ resource "aws_launch_configuration" "lc" {
   iam_instance_profile        = aws_iam_instance_profile.node.name
   image_id                    = data.aws_ami.eks-worker.id
   instance_type               = var.aws_instance_type
-  name_prefix                 = var.aws_cluster_name
+  name_prefix                 = var.cluster_name
   security_groups             = [aws_security_group.node.id]
   user_data_base64            = base64encode(local.demo-node-userdata)
 }
@@ -299,12 +299,12 @@ resource "aws_autoscaling_group" "asg" {
   launch_configuration = aws_launch_configuration.lc.id
   max_size             = var.eks_max_nodes
   min_size             = var.eks_min_nodes
-  name                 = var.aws_cluster_name
+  name                 = var.cluster_name
   vpc_zone_identifier  = aws_subnet.public.*.id
 
   tag {
     key                 = "Name"
-    value               = var.aws_cluster_name
+    value               = var.cluster_name
     propagate_at_launch = true
   }
 
@@ -320,7 +320,7 @@ resource "aws_autoscaling_group" "asg" {
     propagate_at_launch = true
   }
   tag {
-    key                 = "kubernetes.io/cluster/${var.aws_cluster_name}-${random_id.cluster_name.hex}"
+    key                 = "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}"
     value               = "owned"
     propagate_at_launch = true
   }
@@ -373,7 +373,7 @@ users:
       args:
         - "token"
         - "-i"
-        - "${var.aws_cluster_name}-${random_id.cluster_name.hex}"
+        - "${var.cluster_name}-${random_id.cluster_name.hex}"
 KUBECONFIG
 }
 

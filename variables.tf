@@ -1,14 +1,3 @@
-variable "kubeconfig" {
-  description = "Specify the location of the kubeconfig"
-  type        = string
-}
-
-variable "random_cluster_suffix" {
-  description = "Random 6 byte hex suffix for cluster name"
-  type        = string
-  default     = ""
-}
-
 variable "aws_region" {
   description = "AWS region (e.g. `eu-central-1` => Frankfurt)"
   type        = string
@@ -49,12 +38,6 @@ variable "aws_subnets" {
   description = "List of 8-bit numbers of subnets base_cidr_block"
   type        = number
   default     = 2
-}
-
-variable "aws_cluster_name" {
-  description = "AWS ELS cluster name (e.g. `k8s-eks`)"
-  type        = string
-  default     = "k8s-eks"
 }
 
 variable "aws_instance_type" {

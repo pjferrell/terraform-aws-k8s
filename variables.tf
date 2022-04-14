@@ -1,13 +1,7 @@
 variable "aws_region" {
-  description = "AWS region (e.g. `eu-central-1` => Frankfurt)"
+  description = "AWS region (e.g. `us-east-1` => N. Virginia)"
   type        = string
-  default     = "eu-central-1"
-}
-
-variable "aws_profile" {
-  description = "AWS cli profile (e.g. `default`)"
-  type        = string
-  default     = "default"
+  default     = "us-east-1"
 }
 
 variable "eks_nodes" {

@@ -28,7 +28,26 @@ variable "aws_cidr_block" {
   default     = "10.0.0.0/16"
 }
 
-variable "aws_subnets" {
+variable "subnets" {
+  description = "subnets to configure in the cloud (will be tagged with name and any additional tags)"
+  type        = map(object({
+    cidr = string
+    tags = optional(list(object({
+        tag = string
+        value = string
+      })))
+  }))
+  default     = {
+    "loadbalancers": {
+      cidr = "10.0.128.0/20"
+    }
+    "data": {
+      cidr = "10.0.144.0/20"
+    }
+  }
+}
+
+variable "worker_subnets" {
   description = "List of 8-bit numbers of subnets base_cidr_block"
   type        = number
   default     = 2

@@ -32,32 +32,53 @@ data "aws_ami" "eks-worker" {
 resource "aws_vpc" "main" {
   cidr_block = var.aws_cidr_block
 
-  tags = tomap({
-    "Project" = "eks"
-    "ManagedBy" = "terraform"
+  tags = {
+    Name = "${var.cluster_name}"
+    Project   = "k8s"
+    ManagedBy = "terraform"
     "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
-  })
+  }
 }
 
-resource "aws_subnet" "public" {
-  count = var.aws_subnets
-
+resource "aws_subnet" "workers" {
+  count = var.worker_subnets
+  
   availability_zone = data.aws_availability_zones.available.names[count.index]
-  cidr_block        = cidrsubnet(var.aws_cidr_block, 8, count.index)
+  cidr_block        = cidrsubnet(cidrsubnet(var.aws_cidr_block, 0, 0), var.worker_subnets, count.index)
+  #cidrsubnet(var.aws_cidr_block, 8, count.index)
   vpc_id            = aws_vpc.main.id
 
-  tags = tomap({
-    "Project" = "k8s"
-    "ManagedBy" = "terraform"
+  tags =  {
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-workers-${data.aws_availability_zones.available.names[count.index]}"
+    Project   = "k8s"
+    ManagedBy = "terraform"
     "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
-  })
+  }
 }
+
+resource "aws_subnet" "private" {
+  for_each = var.subnets
+
+  # availability_zone = data.aws_availability_zones.available.names[count.index]
+  cidr_block        = each.value.cidr
+  #cidrsubnet(var.aws_cidr_block, 8, count.index)
+  vpc_id            = aws_vpc.main.id
+
+  tags =  merge({
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-${each.key}"
+    Project   = "k8s"
+    ManagedBy = "terraform"
+    "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
+  }, [for o in coalesce(each.value.tags, []) : { o.tag :  o.value}]...)
+}
+
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Project   = "k8s",
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    Project   = "k8s"
     ManagedBy = "terraform"
   }
 }
@@ -71,22 +92,31 @@ resource "aws_route_table" "rt" {
   }
 
   tags = {
-    Project   = "k8s",
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    Project   = "k8s"
     ManagedBy = "terraform"
   }
 }
 
-resource "aws_route_table_association" "rtassoc" {
-  count = var.aws_subnets
+resource "aws_route_table_association" "workers" {
+  count = length(aws_subnet.workers)
 
-  subnet_id      = aws_subnet.public.*.id[count.index]
+  subnet_id      = aws_subnet.workers.*.id[count.index]
+  route_table_id = aws_route_table.rt.id
+}
+
+resource "aws_route_table_association" "private" {
+  count = length(aws_subnet.private)
+
+  subnet_id = values(aws_subnet.private)[count.index].id
+  #values(aws_subnet.private)[count.index].id
   route_table_id = aws_route_table.rt.id
 }
 
 
 # Master IAM
 resource "aws_iam_role" "cluster" {
-  name  = var.cluster_name
+  name  = "${var.cluster_name}-${random_id.cluster_name.hex}"
 
   assume_role_policy = <<POLICY
 {
@@ -104,7 +134,8 @@ resource "aws_iam_role" "cluster" {
 POLICY
 
   tags = {
-    Project   = "k8s",
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    Project   = "k8s"
     ManagedBy = "terraform"
   }
 }
@@ -122,7 +153,7 @@ resource "aws_iam_role_policy_attachment" "cluster-AmazonEKSServicePolicy" {
 
 # Master Security Group
 resource "aws_security_group" "cluster" {
-  name        = var.cluster_name
+  name        = "${var.cluster_name}-${random_id.cluster_name.hex}"
   description = "Cluster communication with worker nodes"
   vpc_id      = aws_vpc.main.id
 
@@ -134,7 +165,8 @@ resource "aws_security_group" "cluster" {
   }
 
   tags = {
-    Project   = "k8s",
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-cluster"
+    Project   = "k8s"
     ManagedBy = "terraform"
   }
 }
@@ -161,19 +193,25 @@ resource "aws_eks_cluster" "cluster" {
 
   vpc_config {
     security_group_ids = [aws_security_group.cluster.id]
-    subnet_ids         = flatten([aws_subnet.public[*].id])
+    subnet_ids         = flatten(aws_subnet.workers[*].id)
   }
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster-AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.cluster-AmazonEKSServicePolicy,
   ]
+  
+  tags = {
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    Project   = "k8s"
+    ManagedBy = "terraform"
+  }
 }
 
 
 # EKS Worker IAM
 resource "aws_iam_role" "node" {
-  name = "${var.cluster_name}-node"
+  name = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
 
   assume_role_policy = <<POLICY
 {
@@ -189,8 +227,10 @@ resource "aws_iam_role" "node" {
   ]
 }
 POLICY
+
   tags = {
-    Project   = "k8s",
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
+    Project   = "k8s"
     ManagedBy = "terraform"
   }
 }
@@ -211,14 +251,20 @@ resource "aws_iam_role_policy_attachment" "node-AmazonEC2ContainerRegistryReadOn
 }
 
 resource "aws_iam_instance_profile" "node" {
-  name  = var.cluster_name
+  name  = "${var.cluster_name}-${random_id.cluster_name.hex}"
   role  = aws_iam_role.node.name
+
+  tags = {
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    Project   = "k8s"
+    ManagedBy = "terraform"
+  }
 }
 
 
 # EKS Worker Security Groups
 resource "aws_security_group" "node" {
-  name        = "${var.cluster_name}-node"
+  name        = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
   description = "Security group for all nodes in the cluster"
   vpc_id      = aws_vpc.main.id
 
@@ -230,8 +276,6 @@ resource "aws_security_group" "node" {
   }
 
   tags = tomap({
-    "Project" = "k8s"
-    "ManagedBy" = "terraform"
     "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "owned"
   })
 }
@@ -300,7 +344,7 @@ resource "aws_autoscaling_group" "asg" {
   max_size             = var.eks_max_nodes
   min_size             = var.eks_min_nodes
   name                 = var.cluster_name
-  vpc_zone_identifier  = aws_subnet.public.*.id
+  vpc_zone_identifier  = aws_subnet.workers[*].id
 
   tag {
     key                 = "Name"

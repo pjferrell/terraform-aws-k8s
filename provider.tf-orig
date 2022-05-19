@@ -2,3 +2,7 @@ provider "aws" {
   region = var.aws_region
   # credentials will read from ~/.aws
 }
+
+terraform {
+  experiments = [module_variable_optional_attrs]
+}

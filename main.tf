@@ -69,6 +69,7 @@ resource "aws_subnet" "private" {
     Project   = "k8s"
     ManagedBy = "terraform"
     "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
+    "infoblox.com/subnet/use" = "${each.key}"
   }, [for o in coalesce(each.value.tags, []) : { o.tag :  o.value}]...)
 }
 
@@ -374,7 +375,6 @@ resource "aws_autoscaling_group" "asg" {
   }
 }
 
-
 # EKS Join Worker Nodes
 # EKS kubeconf
 locals {
@@ -461,4 +461,117 @@ resource "null_resource" "apply_kube_configmap" {
   }
 
   depends_on = [null_resource.aws_iam_authenticator]
+}
+
+resource "aws_iam_role" "crossplane" {
+  name = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
+
+  assume_role_policy = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+POLICY
+
+  tags = {
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
+    Project   = "k8s"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_policy" "crossplane" {
+  name = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
+
+  tags = {
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
+    Project   = "k8s"
+    ManagedBy = "terraform"
+  }
+
+  # TODO: reduce to only the required permissions
+  policy = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["*"],
+    "Resource": "*"
+  }]
+}
+POLICY
+}
+
+resource "aws_iam_role_policy_attachment" "crossplane" {
+  policy_arn = aws_iam_policy.crossplane.arn
+  role       = aws_iam_role.crossplane.name
+}
+
+resource "aws_iam_role" "db-controller" {
+  name = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
+
+  assume_role_policy = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+POLICY
+
+  tags = {
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
+    Project   = "k8s"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_policy" "db-controller" {
+  name = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "rds:*",
+          ]
+          Resource = "*"
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "rds-db:*",
+          ]
+          Resource = "*"
+        },
+    ]
+  })
+
+  tags = {
+    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
+    Project   = "k8s"
+    ManagedBy = "terraform"
+  }
+
+}
+
+resource "aws_iam_role_policy_attachment" "db-controller" {
+  policy_arn = aws_iam_policy.db-controller.arn
+  role       = aws_iam_role.db-controller.name
 }

@@ -540,38 +540,7 @@ POLICY
   }
 }
 
-resource "aws_iam_policy" "db-controller" {
-  name = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-        {
-          Effect = "Allow"
-          Action = [
-            "rds:*",
-          ]
-          Resource = "*"
-        },
-        {
-          Effect = "Allow"
-          Action = [
-            "rds-db:*",
-          ]
-          Resource = "*"
-        },
-    ]
-  })
-
-  tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
-    Project   = "k8s"
-    ManagedBy = "terraform"
-  }
-
-}
-
 resource "aws_iam_role_policy_attachment" "db-controller" {
-  policy_arn = aws_iam_policy.db-controller.arn
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
   role       = aws_iam_role.db-controller.name
 }

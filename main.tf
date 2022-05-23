@@ -151,7 +151,6 @@ resource "aws_iam_role_policy_attachment" "cluster-AmazonEKSServicePolicy" {
   role       = aws_iam_role.cluster.name
 }
 
-
 # Master Security Group
 resource "aws_security_group" "cluster" {
   name        = "${var.cluster_name}-${random_id.cluster_name.hex}"
@@ -248,6 +247,11 @@ resource "aws_iam_role_policy_attachment" "node-AmazonEKS_CNI_Policy" {
 
 resource "aws_iam_role_policy_attachment" "node-AmazonEC2ContainerRegistryReadOnly" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.node.name
+}
+
+resource "aws_iam_role_policy_attachment" "node-AmazonS3ReadOnlyAccess" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
   role       = aws_iam_role.node.name
 }
 

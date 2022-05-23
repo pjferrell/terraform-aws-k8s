@@ -251,6 +251,11 @@ resource "aws_iam_role_policy_attachment" "node-AmazonEC2ContainerRegistryReadOn
   role       = aws_iam_role.node.name
 }
 
+resource "aws_iam_role_policy_attachment" "node-AmazonS3ReadOnlyAccess" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+  role       = aws_iam_role.node.name
+}
+
 resource "aws_iam_instance_profile" "node" {
   name  = "${var.cluster_name}-${random_id.cluster_name.hex}"
   role  = aws_iam_role.node.name

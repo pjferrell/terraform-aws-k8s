@@ -19,7 +19,12 @@ variable "random_cluster_suffix" {
 
 ## Kubernetes worker nodes
 variable "nodes" {
-  description = "Worker nodes (e.g. `2`)"
+  description = "Worker nodes (e.g. `3`)"
   type        = number
-  default     = 2
+  default     = 3
+}
+
+variable "fqdn" {
+  description = "Specify the fully-qualified domain name of the cluster.  This will be used for creating a zone for the cluster"
+  type        = string
 }

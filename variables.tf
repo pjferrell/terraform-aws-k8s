@@ -4,11 +4,7 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "eks_nodes" {
-  description = "EKS Kubernetes worker nodes, desired ASG capacity (e.g. `2`)"
-  default     = 2
-  type        = number
-}
+# eks_nodes has been removed.  desired nodes count is controlled by the global nodes variable
 
 variable "eks_min_nodes" {
   description = "EKS Kubernetes worker nodes, minimal ASG capacity (e.g. `1`)"
@@ -17,8 +13,8 @@ variable "eks_min_nodes" {
 }
 
 variable "eks_max_nodes" {
-  description = "EKS Kubernetes worker nodes, maximal ASG capacity (e.g. `3`)"
-  default     = 3
+  description = "EKS Kubernetes worker nodes, maximal ASG capacity (e.g. `15`)"
+  default     = 15
   type        = number
 }
 

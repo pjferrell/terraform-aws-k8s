@@ -404,7 +404,7 @@ resource "aws_launch_configuration" "lc" {
 }
 
 resource "aws_autoscaling_group" "asg" {
-  desired_capacity     = var.eks_nodes
+  desired_capacity     = var.nodes
   launch_configuration = aws_launch_configuration.lc.id
   max_size             = var.eks_max_nodes
   min_size             = var.eks_min_nodes

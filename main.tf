@@ -4,17 +4,24 @@ resource "random_id" "cluster_name" {
 
 ## Get your workstation external IPv4 address:
 data "http" "workstation-external-ip" {
-  url   = "http://ipv4.icanhazip.com"
+  url = "http://ipv4.icanhazip.com"
 }
 
 locals {
   workstation-external-cidr = "${chomp(data.http.workstation-external-ip.body)}/32"
+  parent_zone               = join(".", slice(split(".", var.fqdn), 1, 5))
 }
 
 data "aws_availability_zones" "available" {
 }
 
 data "aws_region" "current" {
+}
+
+## Get Parent Zone information
+data "aws_route53_zone" "parent_zone" {
+  name         = local.parent_zone
+  private_zone = false
 }
 
 data "aws_ami" "eks-worker" {
@@ -33,25 +40,39 @@ resource "aws_vpc" "main" {
   cidr_block = var.aws_cidr_block
 
   tags = {
-    Name = "${var.cluster_name}"
-    Project   = "k8s"
-    ManagedBy = "terraform"
+    Name                                                                      = "${var.cluster_name}"
+    Project                                                                   = "k8s"
+    ManagedBy                                                                 = "terraform"
     "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
   }
 }
 
+## Create Subdomain off parent zone, and cluster name
+resource "aws_route53_zone" "cluster_subdomain" {
+  name = var.fqdn
+}
+
+## Create Nameserver reconds in parent zone for subdomain
+resource "aws_route53_record" "cluster_ns_record" {
+  zone_id = data.aws_route53_zone.parent_zone.zone_id
+  name    = var.fqdn
+  type    = "NS"
+  ttl     = "30"
+  records = aws_route53_zone.cluster_subdomain.name_servers
+}
+
 resource "aws_subnet" "workers" {
   count = var.worker_subnets
-  
+
   availability_zone = data.aws_availability_zones.available.names[count.index]
   cidr_block        = cidrsubnet(cidrsubnet(var.aws_cidr_block, 0, 0), var.worker_subnets, count.index)
   #cidrsubnet(var.aws_cidr_block, 8, count.index)
-  vpc_id            = aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
 
-  tags =  {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-workers-${data.aws_availability_zones.available.names[count.index]}"
-    Project   = "k8s"
-    ManagedBy = "terraform"
+  tags = {
+    "Name"                                                                    = "${var.cluster_name}-${random_id.cluster_name.hex}-workers-${data.aws_availability_zones.available.names[count.index]}"
+    Project                                                                   = "k8s"
+    ManagedBy                                                                 = "terraform"
     "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
   }
 }
@@ -60,17 +81,17 @@ resource "aws_subnet" "private" {
   for_each = var.subnets
 
   # availability_zone = data.aws_availability_zones.available.names[count.index]
-  cidr_block        = each.value.cidr
+  cidr_block = each.value.cidr
   #cidrsubnet(var.aws_cidr_block, 8, count.index)
-  vpc_id            = aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
 
-  tags =  merge({
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-${each.key}"
-    Project   = "k8s"
-    ManagedBy = "terraform"
+  tags = merge({
+    "Name"                                                                    = "${var.cluster_name}-${random_id.cluster_name.hex}-${each.key}"
+    Project                                                                   = "k8s"
+    ManagedBy                                                                 = "terraform"
     "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
-    "infoblox.com/subnet/use" = "${each.key}"
-  }, [for o in coalesce(each.value.tags, []) : { o.tag :  o.value}]...)
+    "infoblox.com/subnet/use"                                                 = "${each.key}"
+  }, [for o in coalesce(each.value.tags, []) : { o.tag : o.value }]...)
 }
 
 
@@ -78,7 +99,7 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -93,7 +114,7 @@ resource "aws_route_table" "rt" {
   }
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -117,7 +138,7 @@ resource "aws_route_table_association" "private" {
 
 # Master IAM
 resource "aws_iam_role" "cluster" {
-  name  = "${var.cluster_name}-${random_id.cluster_name.hex}"
+  name = "${var.cluster_name}-${random_id.cluster_name.hex}"
 
   assume_role_policy = <<POLICY
 {
@@ -135,7 +156,7 @@ resource "aws_iam_role" "cluster" {
 POLICY
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -166,7 +187,7 @@ resource "aws_security_group" "cluster" {
   }
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-cluster"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-cluster"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -201,9 +222,9 @@ resource "aws_eks_cluster" "cluster" {
     aws_iam_role_policy_attachment.cluster-AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.cluster-AmazonEKSServicePolicy,
   ]
-  
+
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -230,14 +251,14 @@ resource "aws_iam_role" "node" {
 POLICY
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
 }
 
 resource "aws_iam_role_policy_attachment" "node-AmazonEKSWorkerNodePolicy" {
- policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
   role       = aws_iam_role.node.name
 }
 
@@ -256,30 +277,28 @@ resource "aws_iam_role_policy_attachment" "node-AmazonS3ReadOnlyAccess" {
   role       = aws_iam_role.node.name
 }
 
+## External DNS policy for nodes - to be removed if using IRSA
+resource "aws_iam_role_policy_attachment" "external_dns_access" {
+  policy_arn = aws_iam_policy.external_dns.arn
+  role       = aws_iam_role.node.name
+}
+
 resource "aws_iam_instance_profile" "node" {
-  name  = "${var.cluster_name}-${random_id.cluster_name.hex}"
-  role  = aws_iam_role.node.name
+  name = "${var.cluster_name}-${random_id.cluster_name.hex}"
+  role = aws_iam_role.node.name
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
 }
-
 
 # EKS Worker Security Groups
 resource "aws_security_group" "node" {
   name        = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
   description = "Security group for all nodes in the cluster"
   vpc_id      = aws_vpc.main.id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   tags = tomap({
     "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "owned"
@@ -546,7 +565,7 @@ resource "aws_iam_role" "crossplane" {
 POLICY
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -556,7 +575,7 @@ resource "aws_iam_policy" "crossplane" {
   name = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -598,7 +617,7 @@ resource "aws_iam_role" "db-controller" {
 POLICY
 
   tags = {
-    "Name" = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
+    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -607,4 +626,42 @@ POLICY
 resource "aws_iam_role_policy_attachment" "db-controller" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
   role       = aws_iam_role.db-controller.name
+}
+
+## External DNS Role IRSA
+module "iam_assumable_role_external_dns" {
+  source                        = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
+  version                       = "5.1.0"
+  create_role                   = true
+  role_name                     = "external-dns-${var.cluster_name}"
+  provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+  role_policy_arns              = [length(aws_iam_policy.external_dns) >= 1 ? aws_iam_policy.external_dns.arn : ""]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:kube-system:external-dns"]
+}
+
+resource "aws_iam_policy" "external_dns" {
+  name_prefix = "external_dns"
+  description = "Policy that allows change DNS entries for the externalDNS servicefor {var.cluster_domain_name}"
+  policy      = data.aws_iam_policy_document.external_dns_irsa.json
+}
+
+data "aws_iam_policy_document" "external_dns_irsa" {
+  statement {
+    actions = ["route53:ChangeResourceRecordSets"]
+
+    resources = [aws_route53_zone.cluster_subdomain.arn]
+  }
+
+  statement {
+    actions   = ["route53:GetChange"]
+    resources = ["arn:aws:route53:::change/*"]
+  }
+
+  statement {
+    actions = [
+      "route53:ListHostedZones",
+      "route53:ListResourceRecordSets",
+    ]
+    resources = ["*"]
+  }
 }

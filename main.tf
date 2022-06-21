@@ -532,7 +532,7 @@ resource "null_resource" "apply_kube_configmap" {
     }
   }
 
-  depends_on = [null_resource.aws_iam_authenticator]
+  depends_on = [local_file.eks_config_map_aws_auth]
 }
 
 resource "aws_iam_role" "crossplane" {

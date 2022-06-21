@@ -495,12 +495,18 @@ users:
 - name: aws
   user:
     exec:
-      apiVersion: client.authentication.k8s.io/v1alpha1
+      apiVersion: client.authentication.k8s.io/v1beta1
       command: aws-iam-authenticator
       args:
-        - "token"
-        - "-i"
+        - --region
+        - ${var.aws_region}
+        - eks
+        - get-token
+        - --cluster-name
         - "${var.cluster_name}-${random_id.cluster_name.hex}"
+      env:
+      - name: AWS_PROFILE
+        value: "${var.aws_profile}"
 KUBECONFIG
 }
 

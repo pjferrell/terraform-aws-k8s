@@ -496,7 +496,7 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1beta1
-      command: aws-iam-authenticator
+      command: aws
       args:
         - --region
         - ${var.aws_region}
@@ -522,23 +522,6 @@ resource "local_file" "eks_config_map_aws_auth" {
   filename = "${path.module}/aws_config_map_aws_auth"
 
   depends_on = [local_file.kubeconfig]
-}
-
-resource "null_resource" "aws_iam_authenticator" {
-  provisioner "local-exec" {
-    command = <<EOF
-if [ "$(uname -s)" == "Darwin" ]; 
-  then curl -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.13.7/2019-06-11/bin/darwin/amd64/aws-iam-authenticator; 
-else curl -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.12.7/2019-03-27/bin/linux/amd64/aws-iam-authenticator; 
-fi; 
-chmod +x ./aws-iam-authenticator; 
-mkdir -p $HOME/bin && 
-cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && 
-export PATH=$HOME/bin:$PATH
-EOF
-  }
-
-  depends_on = [local_file.eks_config_map_aws_auth]
 }
 
 resource "null_resource" "apply_kube_configmap" {

@@ -1,6 +1,7 @@
 provider "aws" {
   region = var.aws_region
   # credentials will read from ~/.aws
+  profile = var.aws_profile
 }
 
 terraform {

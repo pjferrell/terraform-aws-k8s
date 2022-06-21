@@ -1,3 +1,8 @@
+variable "aws_profile" {
+  description = "AWS PROFILE"
+  type        = string
+}
+
 variable "aws_region" {
   description = "AWS region (e.g. `us-east-1` => N. Virginia)"
   type        = string

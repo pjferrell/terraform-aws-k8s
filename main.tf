@@ -576,12 +576,12 @@ data "aws_iam_policy_document" "external_dns_irsa" {
 
 ## Crossplane Role IRSA
 module "iam_assumable_role_crossplane" {
-  source                        = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
-  version                       = "5.1.0"
-  create_role                   = true
-  role_name                     = "crossplane-${var.cluster_name}"
-  provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
-  role_policy_arns              = [length(aws_iam_policy.crossplane) >= 1 ? aws_iam_policy.crossplane.arn : ""]
+  source                       = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
+  version                      = "5.1.0"
+  create_role                  = true
+  role_name                    = "crossplane-${var.cluster_name}"
+  provider_url                 = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+  role_policy_arns             = [length(aws_iam_policy.crossplane) >= 1 ? aws_iam_policy.crossplane.arn : ""]
   oidc_subjects_with_wildcards = ["system:serviceaccount:default:bloxinabox-provider-*", "system:serviceaccount:db-controller:db-controller-db-controller"]
 }
 

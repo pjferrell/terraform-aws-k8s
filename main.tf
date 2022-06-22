@@ -582,7 +582,7 @@ module "iam_assumable_role_crossplane" {
   role_name                     = "crossplane-${var.cluster_name}"
   provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
   role_policy_arns              = [length(aws_iam_policy.crossplane) >= 1 ? aws_iam_policy.crossplane.arn : ""]
-  oidc_fully_qualified_subjects = ["system:serviceaccount:default:crossplane", "system:serviceaccount:db-controller:db-controller-db-controller"]
+  oidc_subjects_with_wildcards = ["system:serviceaccount:default:bloxinabox-provider-*", "system:serviceaccount:db-controller:db-controller-db-controller"]
 }
 
 resource "aws_iam_policy" "crossplane" {

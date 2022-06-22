@@ -535,88 +535,6 @@ resource "null_resource" "apply_kube_configmap" {
   depends_on = [local_file.eks_config_map_aws_auth]
 }
 
-resource "aws_iam_role" "crossplane" {
-  name = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
-
-  assume_role_policy = <<POLICY
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-POLICY
-
-  tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
-    Project   = "k8s"
-    ManagedBy = "terraform"
-  }
-}
-
-resource "aws_iam_policy" "crossplane" {
-  name = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
-
-  tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-crossplane"
-    Project   = "k8s"
-    ManagedBy = "terraform"
-  }
-
-  # TODO: reduce to only the required permissions
-  policy = <<POLICY
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": ["*"],
-    "Resource": "*"
-  }]
-}
-POLICY
-}
-
-resource "aws_iam_role_policy_attachment" "crossplane" {
-  policy_arn = aws_iam_policy.crossplane.arn
-  role       = aws_iam_role.crossplane.name
-}
-
-resource "aws_iam_role" "db-controller" {
-  name = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
-
-  assume_role_policy = <<POLICY
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-POLICY
-
-  tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-db-controller"
-    Project   = "k8s"
-    ManagedBy = "terraform"
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "db-controller" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
-  role       = aws_iam_role.db-controller.name
-}
-
 ## External DNS Role IRSA
 module "iam_assumable_role_external_dns" {
   source                        = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
@@ -651,6 +569,32 @@ data "aws_iam_policy_document" "external_dns_irsa" {
       "route53:ListHostedZones",
       "route53:ListResourceRecordSets",
     ]
+    resources = ["*"]
+  }
+}
+
+
+## Crossplane Role IRSA
+module "iam_assumable_role_crossplane" {
+  source                        = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
+  version                       = "5.1.0"
+  create_role                   = true
+  role_name                     = "crossplane-${var.cluster_name}"
+  provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+  role_policy_arns              = [length(aws_iam_policy.crossplane) >= 1 ? aws_iam_policy.crossplane.arn : ""]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:default:crossplane", "system:serviceaccount:db-controller:db-controller-db-controller"]
+}
+
+resource "aws_iam_policy" "crossplane" {
+  name_prefix = "crossplane"
+  description = "Policy that allows crossplane to manager resources in cluster"
+  policy      = data.aws_iam_policy_document.crossplane_irsa.json
+}
+
+data "aws_iam_policy_document" "crossplane_irsa" {
+  statement {
+    actions = ["*"]
+
     resources = ["*"]
   }
 }

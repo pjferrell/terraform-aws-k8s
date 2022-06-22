@@ -33,6 +33,8 @@ output "provider_info" {
     security_group_ids = [aws_security_group.cluster.id, aws_security_group.node.id]
     external_dns_role_arn = module.iam_assumable_role_external_dns.iam_role_arn
     external_dns_role_name = module.iam_assumable_role_external_dns.iam_role_name
+    crossplane_role_arn = module.iam_assumable_role_crossplane.iam_role_arn
+    crossplane_role_name = module.iam_assumable_role_crossplane.iam_role_name
     fqdn = var.fqdn
   }
 }

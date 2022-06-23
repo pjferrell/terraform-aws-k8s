@@ -559,7 +559,7 @@ module "iam_assumable_role_external_dns" {
   role_name                     = "external-dns-${var.cluster_name}"
   provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
   role_policy_arns              = [length(aws_iam_policy.external_dns) >= 1 ? aws_iam_policy.external_dns.arn : ""]
-  oidc_fully_qualified_subjects = ["system:serviceaccount:kube-system:external-dns"]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:ib-system:ib-system-external-dns"]
 }
 
 resource "aws_iam_policy" "external_dns" {

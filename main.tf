@@ -18,6 +18,9 @@ data "aws_availability_zones" "available" {
 data "aws_region" "current" {
 }
 
+data "aws_partition" "current" {
+}
+
 ## Get Parent Zone information
 data "aws_route53_zone" "parent_zone" {
   name         = local.parent_zone
@@ -230,6 +233,19 @@ resource "aws_eks_cluster" "cluster" {
   }
 }
 
+data "tls_certificate" "cluster_cert" {
+  url = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "oidc_provider" {
+  client_id_list  = distinct(compact(concat(["sts.${data.aws_partition.current.dns_suffix}"], var.openid_connect_audiences)))
+  thumbprint_list = concat([data.tls_certificate.cluster_cert.certificates[0].sha1_fingerprint], var.custom_oidc_thumbprints)
+  url             = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+
+  tags = {
+    Name = "${var.cluster_name}-eks-irsa"
+  }
+}
 
 # EKS Worker IAM
 resource "aws_iam_role" "node" {
@@ -543,7 +559,7 @@ module "iam_assumable_role_external_dns" {
   role_name                     = "external-dns-${var.cluster_name}"
   provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
   role_policy_arns              = [length(aws_iam_policy.external_dns) >= 1 ? aws_iam_policy.external_dns.arn : ""]
-  oidc_fully_qualified_subjects = ["system:serviceaccount:kube-system:external-dns"]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:ib-system:ib-system-external-dns"]
 }
 
 resource "aws_iam_policy" "external_dns" {

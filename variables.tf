@@ -31,18 +31,18 @@ variable "aws_cidr_block" {
 
 variable "subnets" {
   description = "subnets to configure in the cloud (will be tagged with name and any additional tags)"
-  type        = map(object({
+  type = map(object({
     cidr = string
     tags = optional(list(object({
-        tag = string
-        value = string
-      })))
+      tag   = string
+      value = string
+    })))
   }))
-  default     = {
-    "loadbalancers": {
+  default = {
+    "loadbalancers" : {
       cidr = "10.0.128.0/20"
     }
-    "data": {
+    "data" : {
       cidr = "10.0.144.0/20"
     }
   }
@@ -58,6 +58,18 @@ variable "aws_instance_type" {
   description = "AWS EC2 Instance Type (e.g. `t3.medium`)"
   type        = string
   default     = "t3.medium"
+}
+
+variable "openid_connect_audiences" {
+  description = "List of OpenID Connect audience client IDs to add to the IRSA provider"
+  type        = list(string)
+  default     = []
+}
+
+variable "custom_oidc_thumbprints" {
+  description = "Additional list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s)"
+  type        = list(string)
+  default     = []
 }
 
 # variable "aws_eks_version" {

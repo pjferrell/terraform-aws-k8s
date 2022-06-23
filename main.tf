@@ -598,7 +598,6 @@ module "iam_assumable_role_crossplane" {
   role_name                    = "crossplane-${var.cluster_name}"
   provider_url                 = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
   role_policy_arns             = [length(aws_iam_policy.crossplane) >= 1 ? aws_iam_policy.crossplane.arn : ""]
-  oidc_fully_qualified_subjects = ["system:serviceaccount:db-controller:db-controller-db-controller"]
   oidc_subjects_with_wildcards = ["system:serviceaccount:default:bloxinabox-provider-*"]
 }
 
@@ -609,6 +608,31 @@ resource "aws_iam_policy" "crossplane" {
 }
 
 data "aws_iam_policy_document" "crossplane_irsa" {
+  statement {
+    actions = ["*"]
+
+    resources = ["*"]
+  }
+}
+
+## db-controller Role IRSA
+module "iam_assumable_role_db_controller" {
+  source                       = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
+  version                      = "5.1.0"
+  create_role                  = true
+  role_name                    = "db-controller-${var.cluster_name}"
+  provider_url                 = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+  role_policy_arns             = [length(aws_iam_policy.db_controller) >= 1 ? aws_iam_policy.db_controller.arn : ""]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:db-controller:db-controller-db-controller"]
+}
+
+resource "aws_iam_policy" "db_controller" {
+  name_prefix = "db_controller"
+  description = "Policy that allows crossplane to manager resources in cluster"
+  policy      = data.aws_iam_policy_document.db_controller_irsa.json
+}
+
+data "aws_iam_policy_document" "db_controller_irsa" {
   statement {
     actions = ["*"]
 

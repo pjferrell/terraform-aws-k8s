@@ -21,6 +21,9 @@ data "aws_region" "current" {
 data "aws_partition" "current" {
 }
 
+data "aws_caller_identity" "current" {
+}
+
 ## Get Parent Zone information
 data "aws_route53_zone" "parent_zone" {
   name         = local.parent_zone
@@ -401,6 +404,28 @@ resource "aws_security_group_rule" "node-egress-coredns-udp-https" {
   type                     = "egress"
 }
 
+## Adding so nodes can talk over to https for metadata/etc
+resource "aws_security_group_rule" "node-egress-https" {
+  description       = "Allow pods to to https to anywhere"
+  from_port         = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.node.id
+  to_port           = 443
+  type              = "egress"
+}
+
+## Adding to cover all possible egress traffic from nodes for now
+resource "aws_security_group_rule" "node-egress-all" {
+  description       = "Allow pods to egress any traffic"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.node.id
+  type              = "egress"
+}
+
 # EKS Master <--> Worker Security Group
 resource "aws_security_group_rule" "cluster-ingress-node-https" {
   description              = "Allow pods to communicate with the cluster API Server"
@@ -411,7 +436,6 @@ resource "aws_security_group_rule" "cluster-ingress-node-https" {
   to_port                  = 443
   type                     = "ingress"
 }
-
 
 # EKS Worker Nodes AutoScalingGroup
 
@@ -617,12 +641,12 @@ data "aws_iam_policy_document" "crossplane_irsa" {
 
 ## db-controller Role IRSA
 module "iam_assumable_role_db_controller" {
-  source                       = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
-  version                      = "5.1.0"
-  create_role                  = true
-  role_name                    = "db-controller-${var.cluster_name}"
-  provider_url                 = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
-  role_policy_arns             = [length(aws_iam_policy.db_controller) >= 1 ? aws_iam_policy.db_controller.arn : ""]
+  source                        = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
+  version                       = "5.1.0"
+  create_role                   = true
+  role_name                     = "db-controller-${var.cluster_name}"
+  provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+  role_policy_arns              = [length(aws_iam_policy.db_controller) >= 1 ? aws_iam_policy.db_controller.arn : ""]
   oidc_fully_qualified_subjects = ["system:serviceaccount:db-controller:db-controller-db-controller"]
 }
 
@@ -637,5 +661,67 @@ data "aws_iam_policy_document" "db_controller_irsa" {
     actions = ["*"]
 
     resources = ["*"]
+  }
+}
+
+## Teleport Role IRSA
+module "iam_assumable_role_teleport" {
+  source                        = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
+  version                       = "5.1.0"
+  create_role                   = true
+  role_name                     = "teleport-${var.cluster_name}"
+  provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+  role_policy_arns              = [length(aws_iam_policy.teleport) >= 1 ? aws_iam_policy.teleport.arn : ""]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:ib-system:ib-system-teleport"]
+}
+
+resource "aws_iam_policy" "teleport" {
+  name_prefix = "teleport"
+  description = "Policy that allows Teleport to manage AWS Resources"
+  policy      = data.aws_iam_policy_document.teleport.json
+}
+
+data "aws_iam_policy_document" "teleport" {
+  statement {
+    actions = ["dynamodb:*"]
+
+    resources = [
+      "arn:${data.aws_partition.current.partition}:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/teleport-*",
+      "arn:${data.aws_partition.current.partition}:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/teleport-*/stream/*",
+      "arn:${data.aws_partition.current.partition}:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/teleport-*/index/*",
+      "arn:${data.aws_partition.current.partition}:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/teleport-*/backup/*",
+      "arn:${data.aws_partition.current.partition}:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:global-table/teleport-*"
+    ]
+  }
+
+  statement {
+    actions = [
+      "dynamodb:List*",
+      "dynamodb:Describe*"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    actions = [
+      "s3:PutEncryptionConfiguration",
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:GetEncryptionConfiguration",
+      "s3:GetObjectRetention",
+      "s3:ListBucketVersions",
+      "s3:ListBucketMultipartUploads",
+      "s3:AbortMultipartUpload",
+      "s3:CreateBucket",
+      "s3:ListBucket",
+      "s3:GetBucketVersioning",
+      "s3:PutBucketVersioning",
+      "s3:GetObjectVersion"
+    ]
+    resources = [
+      "arn:aws:s3:::ib-teleport-*/*",
+      "arn:aws:s3:::ib-teleport-*"
+    ]
   }
 }

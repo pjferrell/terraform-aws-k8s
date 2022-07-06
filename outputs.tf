@@ -36,5 +36,7 @@ output "provider_info" {
     crossplane_role_arn = module.iam_assumable_role_crossplane.iam_role_arn
     crossplane_role_name = module.iam_assumable_role_crossplane.iam_role_name
     fqdn = var.fqdn
+    teleport_role_arn = module.iam_assumable_role_teleport.iam_role_arn
+    teleport_role_name = module.iam_assumable_role_teleport.iam_role_name
   }
 }

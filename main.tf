@@ -585,7 +585,7 @@ module "iam_assumable_role_external_dns" {
   role_name                     = "external-dns-${var.cluster_name}"
   provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
   role_policy_arns              = [length(aws_iam_policy.external_dns) >= 1 ? aws_iam_policy.external_dns.arn : ""]
-  oidc_fully_qualified_subjects = ["system:serviceaccount:ib-system:ib-system-external-dns"]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:ib-system:external-dns"]
 }
 
 resource "aws_iam_policy" "external_dns" {
@@ -649,7 +649,7 @@ module "iam_assumable_role_db_controller" {
   role_name                     = "db-controller-${var.cluster_name}"
   provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
   role_policy_arns              = [length(aws_iam_policy.db_controller) >= 1 ? aws_iam_policy.db_controller.arn : ""]
-  oidc_fully_qualified_subjects = ["system:serviceaccount:db-controller:db-controller-db-controller"]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:db-controller:db-controller"]
 }
 
 resource "aws_iam_policy" "db_controller" {
@@ -674,7 +674,7 @@ module "iam_assumable_role_teleport" {
   role_name                     = "teleport-${var.cluster_name}"
   provider_url                  = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
   role_policy_arns              = [length(aws_iam_policy.teleport) >= 1 ? aws_iam_policy.teleport.arn : ""]
-  oidc_fully_qualified_subjects = ["system:serviceaccount:ib-system:ib-system-teleport"]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:ib-system:teleport"]
 }
 
 resource "aws_iam_policy" "teleport" {

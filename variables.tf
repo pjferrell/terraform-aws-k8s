@@ -3,6 +3,12 @@ variable "aws_profile" {
   type        = string
 }
 
+variable "aws_random_id" {
+  description = "AWS RANDOM ID (appended to cluster-name)"
+  type        = string
+  default = ""
+}
+
 variable "aws_region" {
   description = "AWS region (e.g. `us-east-1` => N. Virginia)"
   type        = string

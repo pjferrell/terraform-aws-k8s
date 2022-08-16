@@ -49,7 +49,7 @@ resource "aws_vpc" "main" {
     Name                                                                      = "${var.cluster_name}"
     Project                                                                   = "k8s"
     ManagedBy                                                                 = "terraform"
-    "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}-${local.random_id_cluster_name_hex}" = "shared"
   }
 }
 
@@ -76,10 +76,10 @@ resource "aws_subnet" "workers" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    "Name"                                                                    = "${var.cluster_name}-${random_id.cluster_name.hex}-workers-${data.aws_availability_zones.available.names[count.index]}"
+    "Name"                                                                    = "${var.cluster_name}-${local.random_id_cluster_name_hex}-workers-${data.aws_availability_zones.available.names[count.index]}"
     Project                                                                   = "k8s"
     ManagedBy                                                                 = "terraform"
-    "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}-${local.random_id_cluster_name_hex}" = "shared"
   }
 }
 
@@ -92,10 +92,10 @@ resource "aws_subnet" "private" {
   vpc_id = aws_vpc.main.id
 
   tags = merge({
-    "Name"                                                                    = "${var.cluster_name}-${random_id.cluster_name.hex}-${each.key}"
+    "Name"                                                                    = "${var.cluster_name}-${local.random_id_cluster_name_hex}-${each.key}"
     Project                                                                   = "k8s"
     ManagedBy                                                                 = "terraform"
-    "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}-${local.random_id_cluster_name_hex}" = "shared"
     "infoblox.com/subnet/use"                                                 = "${each.key}"
   }, [for o in coalesce(each.value.tags, []) : { o.tag : o.value }]...)
 }
@@ -105,7 +105,7 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -120,7 +120,7 @@ resource "aws_route_table" "rt" {
   }
 
   tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -144,7 +144,7 @@ resource "aws_route_table_association" "private" {
 
 # Master IAM
 resource "aws_iam_role" "cluster" {
-  name = "${var.cluster_name}-${random_id.cluster_name.hex}"
+  name = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
 
   assume_role_policy = <<POLICY
 {
@@ -162,7 +162,7 @@ resource "aws_iam_role" "cluster" {
 POLICY
 
   tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -181,7 +181,7 @@ resource "aws_iam_role_policy_attachment" "cluster-AmazonEKSServicePolicy" {
 
 # Master Security Group
 resource "aws_security_group" "cluster" {
-  name        = "${var.cluster_name}-${random_id.cluster_name.hex}"
+  name        = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
   description = "Cluster communication with worker nodes"
   vpc_id      = aws_vpc.main.id
 
@@ -193,7 +193,7 @@ resource "aws_security_group" "cluster" {
   }
 
   tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-cluster"
+    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}-cluster"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -215,7 +215,7 @@ resource "aws_security_group_rule" "cluster-ingress-workstation-https" {
 
 # EKS Master
 resource "aws_eks_cluster" "cluster" {
-  name     = "${var.cluster_name}-${random_id.cluster_name.hex}"
+  name     = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
   role_arn = aws_iam_role.cluster.arn
   #version = var.aws_eks_version
 
@@ -230,7 +230,7 @@ resource "aws_eks_cluster" "cluster" {
   ]
 
   tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -252,7 +252,7 @@ resource "aws_iam_openid_connect_provider" "oidc_provider" {
 
 # EKS Worker IAM
 resource "aws_iam_role" "node" {
-  name = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
+  name = "${var.cluster_name}-${local.random_id_cluster_name_hex}-node"
 
   assume_role_policy = <<POLICY
 {
@@ -270,7 +270,7 @@ resource "aws_iam_role" "node" {
 POLICY
 
   tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
+    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}-node"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -303,11 +303,11 @@ resource "aws_iam_role_policy_attachment" "external_dns_access" {
 }
 
 resource "aws_iam_instance_profile" "node" {
-  name = "${var.cluster_name}-${random_id.cluster_name.hex}"
+  name = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
   role = aws_iam_role.node.name
 
   tags = {
-    "Name"    = "${var.cluster_name}-${random_id.cluster_name.hex}"
+    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
@@ -315,12 +315,12 @@ resource "aws_iam_instance_profile" "node" {
 
 # EKS Worker Security Groups
 resource "aws_security_group" "node" {
-  name        = "${var.cluster_name}-${random_id.cluster_name.hex}-node"
+  name        = "${var.cluster_name}-${local.random_id_cluster_name_hex}-node"
   description = "Security group for all nodes in the cluster"
   vpc_id      = aws_vpc.main.id
 
   tags = tomap({
-    "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}" = "owned"
+    "kubernetes.io/cluster/${var.cluster_name}-${local.random_id_cluster_name_hex}" = "owned"
   })
 }
 
@@ -448,7 +448,7 @@ locals {
   demo-node-userdata = <<USERDATA
 #!/bin/bash
 set -o xtrace
-/etc/eks/bootstrap.sh --apiserver-endpoint '${aws_eks_cluster.cluster.endpoint}' --b64-cluster-ca '${aws_eks_cluster.cluster.certificate_authority.0.data}' '${var.cluster_name}-${random_id.cluster_name.hex}'
+/etc/eks/bootstrap.sh --apiserver-endpoint '${aws_eks_cluster.cluster.endpoint}' --b64-cluster-ca '${aws_eks_cluster.cluster.certificate_authority.0.data}' '${var.cluster_name}-${local.random_id_cluster_name_hex}'
 USERDATA
 }
 
@@ -488,7 +488,7 @@ resource "aws_autoscaling_group" "asg" {
     propagate_at_launch = true
   }
   tag {
-    key                 = "kubernetes.io/cluster/${var.cluster_name}-${random_id.cluster_name.hex}"
+    key                 = "kubernetes.io/cluster/${var.cluster_name}-${local.random_id_cluster_name_hex}"
     value               = "owned"
     propagate_at_launch = true
   }
@@ -501,6 +501,8 @@ resource "aws_autoscaling_group" "asg" {
 # EKS Join Worker Nodes
 # EKS kubeconf
 locals {
+  random_id_cluster_name_hex = "${var.aws_random_id == "" ? "${random_id.cluster_name.hex}" : "${var.aws_random_id}"}"
+
   config_map_aws_auth = <<CONFIGMAPAWSAUTH
 apiVersion: v1
 kind: ConfigMap
@@ -543,7 +545,7 @@ users:
         - eks
         - get-token
         - --cluster-name
-        - "${var.cluster_name}-${random_id.cluster_name.hex}"
+        - "${var.cluster_name}-${local.random_id_cluster_name_hex}"
       env:
       - name: AWS_PROFILE
         value: "${var.aws_profile}"

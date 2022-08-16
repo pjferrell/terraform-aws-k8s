@@ -303,11 +303,11 @@ resource "aws_iam_role_policy_attachment" "external_dns_access" {
 }
 
 resource "aws_iam_instance_profile" "node" {
-  name = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
+  name = "${var.cluster_name}-${local.random_id_cluster_name_hex}-node"
   role = aws_iam_role.node.name
 
   tags = {
-    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}"
+    "Name"    = "${var.cluster_name}-${local.random_id_cluster_name_hex}-node"
     Project   = "k8s"
     ManagedBy = "terraform"
   }
